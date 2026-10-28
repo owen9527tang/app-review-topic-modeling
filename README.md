@@ -13,12 +13,16 @@
 
 只看两端会漏掉中段那批「还能用但很别扭」的用户。
 
+![10 个主题的 1 星与 5 星份额差](app_review_project/outputs/figures/fig1_theme_diff.png)
+
+![六个议题的五星级剖面](app_review_project/outputs/figures/fig2_star_profile.png)
+
 ## 材料
 
-- **演示（10 页）**：`app_review_project/outputs/app-review-deck/app-review-deck.html`（浏览器直接打开，支持 `?preview=N` 与 `#/N`）
+- **演示（10 页）**：在线版 https://owen9527tang.github.io/app-review-topic-modeling/app_review_project/outputs/app-review-deck/app-review-deck.html
+  （本地版 `app_review_project/outputs/app-review-deck/app-review-deck.html`，支持 `?preview=N` 与 `#/N` 深链）
 - **1 页 memo**：`app_review_project/outputs/memo.md`
 - **主报告**：`app_review_project/outputs/topic_model.md`
-- **Proposal**：`IMBA_App评论挖掘_proposal.md`
 - **详细文档与复现**：`app_review_project/README.md`
 
 ## 证据链
@@ -30,6 +34,33 @@
 | 换范式 | bge 句向量 → UMAP → HDBSCAN | 33 簇、26.7% 噪声；技术故障簇 54% 为 2–4 星 | `bertopic_check.md` |
 | 换比较范围 | 四类产品分组 + App×年/App×月 固定效应 | 8 个议题 7 个四类同号；收紧参照组后系数最大只动 0.014 | `heterogeneity.md` |
 | 定性精读 | 68 条 AI 评论逐条编码 | 1 星骂识别与记忆失败（19/48），5 星夸报告解读（11/12） | `ai_read.md` |
+
+## 项目结构
+
+```
+app_review_project/
+├── scripts/            01 → 18，按序号执行即可复现
+├── data/               原始与派生数据（评论全文不分发，见 data/README.md）
+├── outputs/            报告、图、deck、memo
+│   ├── topic_model.md      主报告（10 节）
+│   ├── robustness.md       刷评排查 + 官方评分基准
+│   ├── stability.md        多种子 / Bootstrap / 跨 k
+│   ├── algorithm_check.md  NMF vs LDA
+│   ├── bertopic_check.md   句向量 + UMAP + HDBSCAN 范式对照
+│   ├── heterogeneity.md    产品类型分组 + App×月 固定效应
+│   ├── ai_read.md          68 条 AI 评论定性精读
+│   ├── coding_check.md     200 条抽样机械基线（人工编码待补）
+│   ├── figures/            8 张图
+│   └── app-review-deck/    10 页 HTML 演示
+├── codebook.md         codebook v0.2（11 类主题 + other + 人工编码手册）
+└── README.md           流水线、复现命令、依赖与局限
+```
+
+## 方法要点
+
+- **不做逐条人工标注**：极性由星级分组承担，主题模型只回答「在谈什么」；词表剔除纯极性词，否则主题会退化成「好评类 / 差评类」。
+- **形状检验是关键一步**：把 2/3/4 星一并纳入 `share ~ C(rating) + App + 年份`，才看出中段的独立议题；只比两端会把它误记成 1 星专属。
+- **三种固定效应口径并列报**：原始差值含 App 构成差异，固定效应系数是 App 内部比较，两者回答不同问题。
 
 ## 边界（主动交底）
 
