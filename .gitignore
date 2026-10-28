@@ -1,0 +1,35 @@
+# 评论全文与可识别信息不分发
+app_review_project/data/*
+!app_review_project/data/README.md
+!app_review_project/data/app_metadata.csv
+!app_review_project/data/topic_topwords.csv
+!app_review_project/data/topic_compare.csv
+!app_review_project/data/labels_keyword.csv
+!app_review_project/data/stability_matches.csv
+!app_review_project/data/lda_vs_nmf.csv
+!app_review_project/data/heterogeneity.csv
+!app_review_project/data/heterogeneity_fe.csv
+!app_review_project/data/heterogeneity_shape.csv
+!app_review_project/data/bertopic_info.csv
+!app_review_project/data/bertopic_topics.csv
+!app_review_project/data/embeddings_bge_index.csv
+
+# 本地嵌入模型 96 MB，需按 README 自行下载
+app_review_project/models/
+
+# 与本项目无关的草稿/分享包
+IMBA_在线问诊项目proposal.md
+.screenshots/
+.trae-html-share-packages/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.env
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
