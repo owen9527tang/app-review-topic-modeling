@@ -106,3 +106,8 @@
 
 ### 8.4 机检
 `scripts/18_manual_check.py` 读取两份盲表、计算机械基线与 κ，输出 `outputs/coding_check.md`。
+
+### 8.5 编码工具
+`scripts/20_make_coding_tool.py` 把两份表打包成离线 HTML（`data/coding_tool_A.html` / `_B.html`）：
+一条一条显示评论，点选 `spec` 与 `primary`，进度存在浏览器 localStorage，点「导出 CSV」得到可直接覆盖原表的文件。
+工具**不显示星级、不显示机械基线判定、不显示字数** —— 任何一条都会成为编码锚点。

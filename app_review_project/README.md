@@ -53,6 +53,7 @@ app_review_project/
 | `17_heterogeneity.py` | 四类产品分组的方向一致性；App×年、App×月 固定效应与有效识别单元诊断 | `outputs/heterogeneity.md`、`data/heterogeneity*.csv` |
 | `18_manual_check.py` | 读取两份盲表、计算机械基线与 Cohen's κ | `outputs/coding_check.md` |
 | `19_make_coding_sheets.py` | 从 200 条抽样取 100 条，生成两份互盲编码表（B 行序打乱、无星级列） | `data/coding_A.csv`、`data/coding_B.csv` |
+| `20_make_coding_tool.py` | 把两份编码表打包成离线 HTML 点选工具（进度存 localStorage，一键导出 CSV） | `data/coding_tool_A.html`、`data/coding_tool_B.html` |
 
 ## 复现
 
