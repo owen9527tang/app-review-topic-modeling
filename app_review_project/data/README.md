@@ -1,4 +1,4 @@
-# data/ 目录说明
+﻿# data/ 目录说明
 
 本目录**只公开聚合与派生数据，不分发评论全文**。
 
@@ -30,7 +30,7 @@
 
 ## 未公开文件（本地保留）
 
-`reviews_raw.csv`、`reviews_clean.csv`、`reviews_analysis.csv`、`topic_doc_weights.csv`、`sample_200.csv`、`coding_worksheet.csv`、`ai_codes.csv`、`labels_pilot_manual.csv` 等含评论正文，已列入 `.gitignore`。
+`reviews_raw.csv`、`reviews_clean.csv`、`reviews_analysis.csv`、`topic_doc_weights.csv`、`sample_200.csv`、`coding_A.csv`、`coding_B.csv`、`coding_worksheet.csv`、`ai_codes.csv`、`labels_pilot_manual.csv` 等含评论正文，已列入 `.gitignore`。
 
 ## 如何复现
 

@@ -1,4 +1,4 @@
-# 互联网医疗 App 的用户抱怨与评分-议题结构
+﻿# 互联网医疗 App 的用户抱怨与评分-议题结构
 
 用 8 个中国互联网医疗 App 的 1,681 条 App Store 公开评论，做中文短文本主题建模（jieba + TF-IDF + NMF），
 检验「评分」与「用户谈什么」之间的关系。**不做逐条人工标注**：极性由星级分组承担，主题模型只负责发现议题。
@@ -22,7 +22,7 @@ app_review_project/
 │   ├── bertopic_check.md    # 范式对照：句向量 + UMAP + HDBSCAN（簇分布与星级倾向）
 │   ├── ai_read.md           # 68 条提到 AI 的评论定性精读（编码分布与原话）
 │   ├── heterogeneity.md     # 产品类型异质性 + App×年 / App×月 固定效应
-│   ├── coding_check.md      # 200 条抽样：机械基线 + 人工编码与 κ（待两人编码）
+│   ├── coding_check.md      # 抽样：机械基线 + 人工编码与 κ（100 条 × 2 人，待填）
 │   ├── memo.md              # 1 页 memo
 │   ├── figures/             # 8 张图（PNG）
 │   └── app-review-deck/     # 10 页 HTML 演示（app-review-deck.html）
@@ -51,7 +51,8 @@ app_review_project/
 | `15_embed_smoke.py` | 本地加载嵌入模型、编码全部评论、相似度合理性检查 | `data/embeddings_bge.npy`、`outputs/embed_smoke.md` |
 | `16_bertopic.py` | 句向量 + UMAP + HDBSCAN 主题发现，簇的星级倾向与噪声诊断 | `outputs/bertopic_check.md`、`data/bertopic_topics.csv` |
 | `17_heterogeneity.py` | 四类产品分组的方向一致性；App×年、App×月 固定效应与有效识别单元诊断 | `outputs/heterogeneity.md`、`data/heterogeneity*.csv` |
-| `18_manual_check.py` | 200 条抽样编码表生成与校验、机械基线、Cohen's κ（需两名编码者填表） | `data/coding_worksheet.csv`、`outputs/coding_check.md` |
+| `18_manual_check.py` | 读取两份盲表、计算机械基线与 Cohen's κ | `outputs/coding_check.md` |
+| `19_make_coding_sheets.py` | 从 200 条抽样取 100 条，生成两份互盲编码表（B 行序打乱、无星级列） | `data/coding_A.csv`、`data/coding_B.csv` |
 
 ## 复现
 
@@ -68,7 +69,8 @@ C:\Users\ASUS\miniconda3\python.exe scripts\11_figures.py
 C:\Users\ASUS\miniconda3\python.exe scripts\12_algorithm_check.py # NMF vs LDA 对照
 C:\Users\ASUS\miniconda3\python.exe scripts\13_ai_read.py         # AI 评论定性编码
 C:\Users\ASUS\miniconda3\python.exe scripts\17_heterogeneity.py   # 产品类型异质性 + App×年/月 FE
-C:\Users\ASUS\miniconda3\python.exe scripts\18_manual_check.py    # 200 条抽样：机械基线 + κ（填表后重跑）
+C:\Users\ASUS\miniconda3\python.exe scripts\19_make_coding_sheets.py  # 生成两份互盲编码表
+C:\Users\ASUS\miniconda3\python.exe scripts\18_manual_check.py         # 机械基线 + κ（填表后重跑）
 
 # 嵌入与 BERTopic 对照：需要单独的 Python 3.11 环境（torch 无 cp314 轮子）
 C:\Users\ASUS\miniconda3\envs\topic\python.exe scripts\14_download_embedding.py
@@ -99,5 +101,5 @@ bertopic 0.17.4、jieba。两条线不混用环境，因为 torch 目前没有 P
 - 按产品类型分组后 7/8 个议题四类同号，`客服售后与配送体检` 只有 2/4（平台型反向），已降级为弱证据；
   收紧到 App×月后系数几乎不再变化（最大 0.014），但只保留 1,031 条，只能当方向证据。
 - 「5 星更空泛」目前仍是代理指标（字符数 44 vs 36、无主题关键词 29.1% vs 15.4%），
-  200 条抽样的**人工编码与 κ 尚未完成**（`outputs/coding_check.md` 只有规则版基线：无具体对象 33.3% vs 25.5%）。
+  抽样的**人工编码与 κ 尚未完成**（`outputs/coding_check.md` 只有规则版基线：无具体对象 33.3% vs 25.5%）；`scripts/19` 已生成两份互盲表，待两人各填 100 条。
 - 评分与文本同时产生，全部结果为关联，不是因果。

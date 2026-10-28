@@ -18,7 +18,9 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 OUT = ROOT / "outputs"
 SAMPLE = DATA / "sample_200.csv"
-SHEET = DATA / "coding_worksheet.csv"
+A_SHEET = DATA / "coding_A.csv"
+B_SHEET = DATA / "coding_B.csv"
+LEGACY = DATA / "coding_worksheet.csv"
 REPORT = OUT / "coding_check.md"
 
 THEMES = {
@@ -52,21 +54,29 @@ def mechanical_spec(text: str) -> int:
     return 0
 
 
-def build_sheet(sample: pd.DataFrame) -> pd.DataFrame:
-    if SHEET.exists():
-        sheet = pd.read_csv(SHEET, encoding="utf-8-sig", dtype={"review_id": str})
-        missing = [c for c in ["spec_A", "primary_A", "spec_B", "primary_B"] if c not in sheet.columns]
-        if missing:
-            raise SystemExit(f"{SHEET.name} 缺列 {missing}，请手工补齐或删除该文件后重跑。")
-        return sheet
-    sheet = sample[["review_id", "app_name", "rating", "month", "content"]].copy()
-    sheet["spec_A"] = ""
-    sheet["primary_A"] = ""
-    sheet["spec_B"] = ""
-    sheet["primary_B"] = ""
-    sheet["note"] = ""
-    sheet.to_csv(SHEET, index=False, encoding="utf-8-sig")
-    return sheet
+def load_sheets() -> tuple[pd.DataFrame, str]:
+    """优先读两份互盲表（coding_A / coding_B），退回旧的单表 coding_worksheet。"""
+    if A_SHEET.exists() and B_SHEET.exists():
+        a = pd.read_csv(A_SHEET, encoding="utf-8-sig", dtype={"review_id": str})
+        b = pd.read_csv(B_SHEET, encoding="utf-8-sig", dtype={"review_id": str})
+        for df, who in [(a, "A"), (b, "B")]:
+            need = ["review_id", "spec", "primary"]
+            miss = [c for c in need if c not in df.columns]
+            if miss:
+                raise SystemExit(f"coding_{who}.csv 缺列 {miss}")
+        a = a.rename(columns={"spec": "spec_A", "primary": "primary_A"})
+        b = b.rename(columns={"spec": "spec_B", "primary": "primary_B"})
+        sheet = a.merge(b[["review_id", "spec_B", "primary_B"]], on="review_id", how="inner")
+        return sheet, "data/coding_A.csv + data/coding_B.csv"
+
+    if LEGACY.exists():
+        sheet = pd.read_csv(LEGACY, encoding="utf-8-sig", dtype={"review_id": str})
+        miss = [c for c in ["spec_A", "primary_A", "spec_B", "primary_B"] if c not in sheet.columns]
+        if miss:
+            raise SystemExit(f"{LEGACY.name} 缺列 {miss}，请补齐或删除后重跑。")
+        return sheet, "data/coding_worksheet.csv（旧单表）"
+
+    raise SystemExit("找不到编码表：先运行 scripts/19_make_coding_sheets.py 生成 coding_A.csv 与 coding_B.csv")
 
 
 def norm(series: pd.Series) -> pd.Series:
@@ -96,7 +106,7 @@ def kappa(a: pd.Series, b: pd.Series, weighted: bool) -> float:
 
 def main():
     sample = pd.read_csv(SAMPLE, encoding="utf-8-sig", dtype={"review_id": str})
-    sheet = build_sheet(sample)
+    sheet, sheet_desc = load_sheets()
     base = sample.merge(sheet[["review_id"]], on="review_id", how="left")
 
     # ---------- 机械基线（与人工编码无关，任何时候都能算） ----------
@@ -107,10 +117,10 @@ def main():
 
     nA, nB = filled(sheet["spec_A"]), filled(sheet["spec_B"])
     lines = [
-        "# 200 条抽样的人工编码核查",
+        "# 抽样评论的人工编码核查",
         "",
         "> 目的：把「5 星更空泛」从代理指标（字符数、关键词命中）升级为**可验证标签**，并给出编码一致性。",
-        f"> 编码表：`data/coding_worksheet.csv`（{len(sheet)} 行，已编码 A {nA} 条 / B {nB} 条）。",
+        f"> 编码表：`data/coding_A.csv` + `data/coding_B.csv`（各 100 条，互盲、行序已打乱；已编码 A {nA} 条 / B {nB} 条）。",
         "",
         "## 1. 抽样构成",
         "",
@@ -146,8 +156,8 @@ def main():
 
     if nA == 0 and nB == 0:
         lines += [
-            "尚未编码。请按 `codebook.md` 第 8 节填 `spec_A` / `primary_A`（建议由你本人编码），"
-            "再请第二人独立填 `spec_B` / `primary_B`；两列都填好后重跑本脚本即可得到 κ。",
+            "尚未编码。请按 `codebook.md` 第 8 节：你填 `data/coding_A.csv` 的 `spec` / `primary`（100 条），"
+            "再把 `data/coding_B.csv` 交给第二人独立填（同一批 100 条，行序已打乱、无星级列）；两表都填好后重跑本脚本即可得到 κ。",
             "",
             "**为什么必须两个人**：同一人前后两次编码的一致性会被记忆污染，不能代替独立编码者。",
             "若只有一个人可编，就只报「人工 vs 机械基线」的一致率，不要报 κ、也不要说「一致性良好」。",
@@ -207,7 +217,7 @@ def main():
         lines += ["*生成脚本：`scripts/18_manual_check.py`。*"]
 
     REPORT.write_text("\n".join(lines), encoding="utf-8")
-    print(f"编码表：{SHEET}（A 已填 {nA}，B 已填 {nB}）")
+    print(f"编码表：{sheet_desc}（A 已填 {nA}，B 已填 {nB}）")
     print(f"报告：{REPORT}")
     print("机械基线分布：", base["mech_spec"].value_counts().sort_index().to_dict())
 
