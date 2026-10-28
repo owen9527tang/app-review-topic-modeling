@@ -19,6 +19,7 @@ app_review_project/models/
 
 # 与本项目无关的草稿/分享包
 IMBA_在线问诊项目proposal.md
+IMBA_App评论挖掘_proposal.md
 .screenshots/
 .trae-html-share-packages/
 

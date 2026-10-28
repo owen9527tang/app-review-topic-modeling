@@ -1,7 +1,7 @@
 # 产品类型异质性与更细的固定效应
 
 > 目的：回答两个追问——① 分段结构是不是某一类产品的产物；② 换成「同一个 App、同一时间段内」的比较，结论还在不在。
-> 数据与主报告一致（`data/topic_doc_weights.csv`，k=10，1,681 条）。产品类型划分见 proposal 第 4 节。
+> 数据与主报告一致（`data/topic_doc_weights.csv`，k=10，1,681 条）。产品类型归组见 `scripts/17_heterogeneity.py` 的 `APP_TYPE`。
 
 ## 1. 分组样本
 
