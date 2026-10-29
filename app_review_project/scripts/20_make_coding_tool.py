@@ -76,8 +76,8 @@ padding:11px 26px;display:flex;gap:11px;align-items:center}
   <h3>文本具体性 spec：先问有无对象，再问有无可核对的量</h3>
   <div class="opts" id="spec"></div>
   <p class="hint" style="margin-left:0;margin-top:8px">只提到功能名、药名、科室名算 1，不算 2；「能核对」才给 2。</p>
-  <h3>主议题 primary：先定组，再选细项</h3>
-  <div class="chips" id="primary"></div>
+  __PRI_OPEN__<h3>主议题 primary：先定组，再选细项</h3>
+  <div class="chips" id="primary"></div>__PRI_CLOSE__
   <h3>备注 note（可选）</h3>
   <textarea id="note" placeholder="边界判例写在这里，便于事后核对规则"></textarea>
 </main>
@@ -93,6 +93,7 @@ const THEMES = __THEMES__;
 const THEME_CN = __THEME_CN__;
 const GROUPS = __GROUPS__;
 const KEY = __KEY__;
+const NEED_P = __NEED_P__;
 const S = JSON.parse(localStorage.getItem(KEY) || "{}");
 let i = 0;
 ROWS.forEach(r => { if(!S[r.review_id]) S[r.review_id] = {spec:"",primary:"",note:""}; });
@@ -111,7 +112,7 @@ function sync(){
     '</div>').join("");
   document.querySelectorAll("#spec .opt").forEach(b=>b.onclick=()=>{c.spec=b.dataset.v; save(); sync();});
   document.querySelectorAll("#primary .chip").forEach(b=>b.onclick=()=>{c.primary=b.dataset.k; save(); sync();});
-  const done = ROWS.filter(x=>S[x.review_id].spec!=="" && S[x.review_id].primary!=="").length;
+  const done = ROWS.filter(x=>S[x.review_id].spec!=="" && (!NEED_P || S[x.review_id].primary!=="")).length;
   document.getElementById("prog").textContent = done+" / "+ROWS.length;
 }
 document.getElementById("note").oninput = e => { S[ROWS[i].review_id].note = e.target.value; save(); };
@@ -131,14 +132,14 @@ document.getElementById("export").onclick = ()=>{
   const blob = new Blob(["\\ufeff"+[head].concat(body).join("\\r\\n")], {type:"text/csv;charset=utf-8"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = __FILE__; a.click();
-  const done = ROWS.filter(x=>S[x.review_id].spec!=="" && S[x.review_id].primary!=="").length;
+  const done = ROWS.filter(x=>S[x.review_id].spec!=="" && (!NEED_P || S[x.review_id].primary!=="")).length;
   alert("已导出 " + __FILE__ + "\\n完成 "+done+" / "+ROWS.length+" 条\\n\\n请用导出的文件覆盖 data/ 下的同名文件。");
 };
 sync();
 </script></body></html>"""
 
 
-def build(sheet: str) -> Path:
+def build(sheet: str, spec_only: bool = False) -> Path:
     src = DATA / f"coding_{sheet}.csv"
     if not src.exists():
         raise SystemExit(f"缺少 {src}，先运行 scripts/19_make_coding_sheets.py")
@@ -151,18 +152,23 @@ def build(sheet: str) -> Path:
             .replace("__THEMES__", json.dumps(THEMES, ensure_ascii=False))
             .replace("__THEME_CN__", json.dumps(THEME_CN, ensure_ascii=False))
             .replace("__GROUPS__", json.dumps(GROUPS, ensure_ascii=False))
-            .replace("__KEY__", json.dumps(f"coding_{sheet}_v2"))
-            .replace("__FILE__", json.dumps(f"coding_{sheet}.csv"))
+            .replace("__KEY__", json.dumps(f"coding_{sheet}_v2_spec" if spec_only else f"coding_{sheet}_v2"))
+            .replace("__NEED_P__", "false" if spec_only else "true")
+            .replace("__PRI_OPEN__", "<!--" if spec_only else "")
+            .replace("__PRI_CLOSE__", "-->" if spec_only else "")
+            .replace("__FILE__", json.dumps(f"coding_{sheet}_spec.csv" if spec_only else f"coding_{sheet}.csv"))
             .replace("__SHEET__", sheet))
-    out = DATA / f"coding_tool_{sheet}.html"
+    suffix = "_spec" if spec_only else ""
+    out = DATA / f"coding_tool_{sheet}{suffix}.html"
     out.write_text(html, encoding="utf-8")
     print(f"{out}（{len(rows)} 条，{out.stat().st_size // 1024} KB）")
     return out
 
 
 def main():
-    for s in ("A", "B"):
-        build(s)
+    build("A")
+    build("B")
+    build("B", spec_only=True)
 
 
 if __name__ == "__main__":

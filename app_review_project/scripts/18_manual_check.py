@@ -178,6 +178,16 @@ def main():
                           on="review_id", how="left")
         for c in ["spec_A", "primary_A", "spec_B", "primary_B"]:
             base[c] = norm(base[c])
+        # A 用 12 个细项、B 可能已是 6 组，统一映射到 6 组后再比
+        GRP = {"doctor": "医疗服务", "appointment": "医疗服务", "prescription": "医疗服务",
+               "fee": "费用与权益", "promotion": "费用与权益", "service": "费用与权益",
+               "tech": "技术与账号", "privacy": "技术与账号",
+               "delivery": "药品与商品", "goods": "药品与商品",
+               "content": "内容", "other": "其他",
+               "医疗服务": "医疗服务", "费用与权益": "费用与权益", "技术与账号": "技术与账号",
+               "药品与商品": "药品与商品", "内容": "内容", "其他": "其他"}
+        base["gA"] = base["primary_A"].map(lambda v: GRP.get(v, ""))
+        base["gB"] = base["primary_B"].map(lambda v: GRP.get(v, ""))
         base["mech"] = base["mech_spec"].map(lambda v: str(int(v)))
         res = []
         if nA >= 10:
@@ -185,7 +195,7 @@ def main():
         if nB >= 10:
             res.append(("具体性 A vs B", kappa(base["spec_A"], base["spec_B"], True), int(min(nA, nB))))
         if nA >= 10 and nB >= 10:
-            res.append(("主议题 A vs B", kappa(base["primary_A"], base["primary_B"], False), int(min(nA, nB))))
+            res.append(("主议题 A vs B（6 组）", kappa(base["gA"], base["gB"], False), int(min(nA, nB))))
         lines += ["| 对比 | κ | 可用样本 |", "|---|---|---|"]
         for name, k, n in res:
             lines.append(f"| {name} | {k:.3f} | {n} |")
@@ -227,14 +237,9 @@ def main():
             sa, sb = base.loc[both, "spec_A"], base.loc[both, "spec_B"]
             same = int((sa == sb).sum())
             d = (pd.to_numeric(sa, errors="coerce") - pd.to_numeric(sb, errors="coerce")).abs()
-            m6 = {"doctor": "医疗服务", "appointment": "医疗服务", "prescription": "医疗服务",
-                  "fee": "费用与权益", "promotion": "费用与权益", "service": "费用与权益",
-                  "tech": "技术与账号", "privacy": "技术与账号",
-                  "delivery": "药品与商品", "goods": "药品与商品",
-                  "content": "内容", "other": "其他"}
-            pa = base.loc[both, "primary_A"]
-            pb = base.loc[both, "primary_B"]
-            keep = pa.isin(m6) & pb.isin(m6)
+            pa = base.loc[both, "gA"]
+            pb = base.loc[both, "gB"]
+            keep = (pa != "") & (pb != "")
             lines += [
                 "## 5. 分歧诊断",
                 "",
@@ -244,8 +249,7 @@ def main():
                 "|---|---|",
                 f"| spec 三分（二次加权） | {kappa(sa, sb, True):.3f} |",
                 f"| spec 二分（0 vs 1/2） | {kappa((sa != '0').map(str), (sb != '0').map(str), False):.3f} |",
-                f"| primary 12 类 | {kappa(pa, pb, False):.3f} |",
-                f"| primary 合并 6 组 | {kappa(pa[keep].map(m6), pb[keep].map(m6), False):.3f} |",
+                f"| primary 6 组 | {kappa(pa[keep], pb[keep], False):.3f} |",
                 "",
             ]
             # 判断编码者是否真的依据文本：spec 与字数、含数字的关联
