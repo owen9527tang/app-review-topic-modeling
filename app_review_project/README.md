@@ -10,7 +10,7 @@
 
 ```
 app_review_project/
-├── scripts/                 # 01 → 16，按序号执行即可复现
+├── scripts/                 # 01 → 23，按序号执行即可复现
 ├── data/                    # 原始与派生数据（评论全文不对外分发）
 ├── models/                  # 本地嵌入模型 bge-small-zh-v1.5（96 MB，不入 git）
 ├── outputs/                 # 报告、图、演示、memo
@@ -22,9 +22,11 @@ app_review_project/
 │   ├── bertopic_check.md    # 范式对照：句向量 + UMAP + HDBSCAN（簇分布与星级倾向）
 │   ├── ai_read.md           # 68 条提到 AI 的评论定性精读（编码分布与原话）
 │   ├── heterogeneity.md     # 产品类型异质性 + App×年 / App×月 固定效应
-│   ├── coding_check.md      # 抽样：机械基线 + 双人 κ（第一轮未达标，手册已改）
+│   ├── coding_check.md      # 抽样人工编码核查（负结果：两轮两版手册最低 κ 0.164，不采用）
+│   ├── info_content.md      # 延伸：评分 × 可核对信息量（数量词 / 对象词 + 字数分层）
+│   ├── info_content_audit.md # 规则指标的 30 条人工抽查（precision / specificity）
 │   ├── memo.md              # 1 页 memo
-│   ├── figures/             # 8 张图（PNG）
+│   ├── figures/             # 9 张图（PNG）
 │   └── app-review-deck/     # 10 页 HTML 演示（app-review-deck.html）
 ├── codebook.md              # codebook v0.2（11 类主题 + other）
 └── data_quality.md 等见 outputs/
@@ -54,6 +56,9 @@ app_review_project/
 | `18_manual_check.py` | 读取两份盲表、计算机械基线与 Cohen's κ | `outputs/coding_check.md` |
 | `19_make_coding_sheets.py` | 从 200 条抽样取 100 条，生成两份互盲编码表（B 行序打乱、无星级列） | `data/coding_A.csv`、`data/coding_B.csv` |
 | `20_make_coding_tool.py` | 把两份编码表打包成离线 HTML 点选工具（进度存 localStorage，一键导出 CSV） | `data/coding_tool_A.html`、`data/coding_tool_B.html` |
+| `21_merge_b.py` | 把 B 的 12 细项机械映射为 6 组；`--merge` 时拼上新的 spec | `data/coding_B_groups.csv`、`data/coding_B.csv` |
+| `22_info_content.py` | 信息含量三指标 × 三检验：原始差异、字数四档分层 + MH 合并 OR、条件在「谈到对象」 | `outputs/info_content.md`、`data/info_content.csv`、`fig9` |
+| `23_audit_info_content.py` | 抽 30 条复核规则指标的标记对错，算 precision / specificity | `outputs/info_content_audit.md` |
 
 ## 复现
 
@@ -72,6 +77,8 @@ C:\Users\ASUS\miniconda3\python.exe scripts\13_ai_read.py         # AI 评论定
 C:\Users\ASUS\miniconda3\python.exe scripts\17_heterogeneity.py   # 产品类型异质性 + App×年/月 FE
 C:\Users\ASUS\miniconda3\python.exe scripts\19_make_coding_sheets.py  # 生成两份互盲编码表
 C:\Users\ASUS\miniconda3\python.exe scripts\18_manual_check.py         # 机械基线 + κ（填表后重跑）
+C:\Users\ASUS\miniconda3\python.exe scripts\22_info_content.py         # 评分 × 可核对信息量（延伸）
+C:\Users\ASUS\miniconda3\python.exe scripts\23_audit_info_content.py   # 生成 30 条抽查表（--check 读回）
 
 # 嵌入与 BERTopic 对照：需要单独的 Python 3.11 环境（torch 无 cp314 轮子）
 C:\Users\ASUS\miniconda3\envs\topic\python.exe scripts\14_download_embedding.py
@@ -101,7 +108,12 @@ bertopic 0.17.4、jieba。两条线不混用环境，因为 torch 目前没有 P
 - 换算法（LDA）7/10 个主题方向同号，换范式（BERTopic）两端与中段结构均复现，但两套主题都无法与 NMF 一一映射，只比对方向。
 - 按产品类型分组后 7/8 个议题四类同号，`客服售后与配送体检` 只有 2/4（平台型反向），已降级为弱证据；
   收紧到 App×月后系数几乎不再变化（最大 0.014），但只保留 1,031 条，只能当方向证据。
-- 「5 星更空泛」仍是代理指标（字符数 44 vs 36、无主题关键词 29.1% vs 15.4%）：
-  抽样的双人编码两轮均未通过（12 类 κ 0.068 / 6 组 0.173、spec 0.271、有对象 vs 空泛二元 0.164），
-  因此不声称人工验证；仅「正文是否含数量词」改为规则特征。诊断见 `outputs/coding_check.md` 第 5、6 节。
+- 「5 星更空泛」这一维**做不成可靠的人工编码**：两轮、两版手册下最低 κ = 0.164（12 类 0.068、6 组 0.173、
+  两版混用 0.271、有对象 vs 空泛二元 0.164），因此不声称人工验证，该实验作为负结果保留。
+  空泛程度改用规则指标：字符数中位数 44 vs 36、未命中主题关键词 29.1% vs 15.4%；
+  「正文是否含数量词」1 星 30.4% vs 5 星 11.2%（字数四档分层后 MH OR 0.33，CI 0.24–0.45）。
+  规则指标的 30 条人工抽查：数量词判「有」6/10 成立、判「无」20/20 成立，对象词 15/17 与 9/13。
+  诊断见 `outputs/coding_check.md` 第 5、6 节与 `outputs/info_content_audit.md`。
+- 「信息含量」是「有没有可核对细节」的代理，**不是医学质量**：判断建议对不对需要医生金标准，
+  本仓库不具备该条件。
 - 评分与文本同时产生，全部结果为关联，不是因果。
