@@ -88,7 +88,7 @@ padding:11px 26px;display:flex;gap:11px;align-items:center}
 </nav>
 <script>
 const ROWS = __ROWS__;
-const SPECS = [["0","0 无对象","划掉情绪词后，没有可指认的对象"],["1","1 有对象无量","能说清在谈什么，但没有可核对的量"],["2","2 有可核对的量","金额、次数、时长、日期、版本号、操作步骤"]];
+const SPECS = [["0","0 无对象","划掉情绪词后，没有可指认的对象"],["1","1 有对象无量","能指认对象，但正文没有数字"],["2","2 正文有数量","金额、次数、天数、日期、版本号"]];
 const THEMES = __THEMES__;
 const THEME_CN = __THEME_CN__;
 const GROUPS = __GROUPS__;
