@@ -56,6 +56,10 @@ python scripts/22_info_content.py
 python scripts/14_download_embedding.py
 python scripts/15_embed_smoke.py
 python scripts/16_bertopic.py
+
+# 4. 规则指标抽查（需人工填表，可跳过）
+python scripts/23_audit_info_content.py          # 生成抽查表
+python scripts/23_audit_info_content.py --check  # 读回填好的表
 ```
 
 > 注：`02_collect_full.py` 抓取的是「当日最近若干页」，与本文分析的 1,681 条不完全相同；正文级复现需自行采集。聚合结果的复现不受影响的前提是使用同一份本地数据。

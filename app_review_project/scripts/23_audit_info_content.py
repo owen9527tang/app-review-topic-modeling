@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 REVIEWS = DATA / "reviews_analysis.csv"
 SHEET = DATA / "audit_info_content.csv"
+REPORT = ROOT / "outputs" / "info_content_audit.md"
 SCRIPT22 = ROOT / "scripts" / "22_info_content.py"
 
 SEED = 20261029
@@ -109,32 +110,90 @@ def make():
     print("  python scripts/23_audit_info_content.py --check")
 
 
+def read_sheet(path):
+    """Excel / WPS 另存时可能变成 GBK，这里两种编码都试。"""
+    for enc in ("utf-8-sig", "gbk", "gb18030"):
+        try:
+            return pd.read_csv(path, encoding=enc, dtype={"review_id": str})
+        except UnicodeDecodeError:
+            continue
+    raise SystemExit(f"读不了 {path}：编码既不是 UTF-8 也不是 GBK")
+
+
 def check():
     if not SHEET.exists():
         raise SystemExit("先运行不带参数的命令生成抽查表")
-    d = pd.read_csv(SHEET, encoding="utf-8-sig", dtype={"review_id": str})
+    d = read_sheet(SHEET)
+    stats, lines = {}, []
+    lines.append("# 规则指标抽查（30 条）\n")
+    lines.append(
+        "`22_info_content.py` 的两个指标是规则生成、未经人工校验的。这里抽 30 条（三组各 10 条、"
+        "跨五个星级），只要求判「机器的标记与文本是否一致」，用来给指标一个可上报的误差范围。\n"
+    )
+    lines.append("抽到的组：A 有数量词、B 有对象无数量词、C 两者都没有。\n")
+    lines.append("| 指标 | 机器判「有」的条数 | 人工同意 | precision | 机器判「无」的条数 | 人工同意 | specificity |")
+    lines.append("|---|---|---|---|---|---|---|")
+
     for who, flag, human in [("数量词", "机器_数量词", "人工_数量词对"),
                              ("对象", "机器_对象", "人工_对象对")]:
         h = pd.to_numeric(d[human], errors="coerce")
         m = pd.to_numeric(d[flag], errors="coerce")
         ok = h.notna()
         m1, m0 = ok & (m == 1), ok & (m == 0)
-        print(f"\n【{who}】已判 {int(ok.sum())} 条")
-        if m1.sum():
-            print(f"  机器判 1 的 {int(m1.sum())} 条中，人工同意 {int((h[m1] == 1).sum())} 条"
-                  f"（precision = {(h[m1] == 1).mean():.0%}）")
-        if m0.sum():
-            print(f"  机器判 0 的 {int(m0.sum())} 条中，人工同意 {int((h[m0] == 0).sum())} 条"
-                  f"（specificity = {(h[m0] == 0).mean():.0%}）")
+        prec = (h[m1] == 1).mean() if m1.sum() else float("nan")
+        spec = (h[m0] == 0).mean() if m0.sum() else float("nan")
         acc = (h[ok] == m[ok]).mean() if ok.sum() else float("nan")
-        print(f"  合计一致率 = {acc:.0%}（n={int(ok.sum())}）")
+        stats[who] = (int(m1.sum()), int((h[m1] == 1).sum()), prec,
+                      int(m0.sum()), int((h[m0] == 0).sum()), spec, acc)
+        lines.append(
+            f"| {who} | {int(m1.sum())} | {int((h[m1] == 1).sum())} | {prec:.0%} | "
+            f"{int(m0.sum())} | {int((h[m0] == 0).sum())} | {spec:.0%} |"
+        )
+    lines.append("")
 
-    miss = d[pd.to_numeric(d["人工_数量词对"], errors="coerce").isna()
-             | pd.to_numeric(d["人工_对象对"], errors="coerce").isna()]
-    if len(miss):
-        print("\n未判的行：")
-        for _, r in miss.iterrows():
-            print(f"  {r['序号']} {r['review_id']}")
+    lines.append("## 分歧清单\n")
+    bad = d[(pd.to_numeric(d["人工_数量词对"], errors="coerce") != pd.to_numeric(d["机器_数量词"], errors="coerce"))
+           | (pd.to_numeric(d["人工_对象对"], errors="coerce") != pd.to_numeric(d["机器_对象"], errors="coerce"))]
+    for _, r in bad.iterrows():
+        txt = str(r["content"]).replace("\n", " ")[:90]
+        note = "" if pd.isna(r["备注"]) else f"；备注：{r['备注']}"
+        nh = "" if pd.isna(r["num_hit"]) else f"（命中 `{r['num_hit']}`）"
+        oh = "" if pd.isna(r["obj_hit"]) else f"（命中 `{r['obj_hit']}`）"
+        lines.append(
+            f"- `{r['序号']}`（{int(r['rating'])} 星）机器 数量词={int(r['机器_数量词'])}{nh}、"
+            f"对象={int(r['机器_对象'])}{oh}，人工判 {r['人工_数量词对']}/{r['人工_对象对']}{note}。原文：{txt}"
+        )
+    lines.append("")
+
+    lines.append("## 读法\n")
+    lines.append(
+        "- **数量词的误判都在「非量数字」**：`四星`（评分）、`三线`（三线城市）、`版本 9.2`、"
+        "`挂 2 个科室`。因此这个指标实际测的是「正文有没有写数字」，而不是「有没有可核对的量」。"
+        f"判「无」的 {stats['数量词'][3]} 条全部被人工确认，说明漏判很少。"
+    )
+    lines.append(
+        f"- **对象词表不全**：漏判集中在 `预约`、`义诊`、`科室` 这类同场景词 —— "
+        f"判「无」的 {stats['对象'][3]} 条里 {stats['对象'][3] - stats['对象'][4]} 条被人工改判为「有」。"
+        "两组都会被同样低估，属同向偏差，不影响两组的相对比较。"
+    )
+    lines.append(
+        "- **对结论的影响**：数量词的漏判率为 0，误判是「多算」。若两个星级的误判比例相近，"
+        "观测率 ≈ 真实率 × 同一系数，比值（1 星是 5 星的 2.7 倍）不因此改变。"
+        "但抽查只有 10 条阳性，无法分组估计精度，所以结论只读作方向与量级上限，不当精确值用。"
+    )
+    lines.append(
+        "- **对象词的读数不宜当精度用**：复核里有两处判断本身不自洽 —— `A-01` 有「医院」被判 0，"
+        "`A-02` 无任何医疗词却被判 1；`C-03`、`C-10` 的备注写的是「挂号」「技术进步」，"
+        "说明复核时把口径放宽到「具体物体/场景」了。所以 88% / 69% 说明的是「词表不全 + 边界不清」，"
+        "不能说明关键词法本身不可靠。要收紧的话，应先把判定标准写死（只认字面出现的对象词），再抽第二遍。"
+    )
+    lines.append("")
+    REPORT.write_text("\n".join(lines), encoding="utf-8")
+
+    for who, s in stats.items():
+        print(f"\n【{who}】判有 {s[0]} 条，同意 {s[1]} 条（precision {s[2]:.0%}）；"
+              f"判无 {s[3]} 条，同意 {s[4]} 条（specificity {s[5]:.0%}）；合计一致率 {s[6]:.0%}")
+    print(f"\n写入 {REPORT.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

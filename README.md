@@ -51,7 +51,8 @@ app_review_project/
 │   ├── heterogeneity.md    产品类型分组 + App×月 固定效应
 │   ├── ai_read.md          68 条 AI 评论定性精读
 │   ├── coding_check.md     人工编码核查（负结果：两轮两版手册最低 κ 0.164，不采用）
-│   ├── info_content.md     评分 × 可核对信息量（延伸检验：数量词 / 实体）
+│   ├── info_content.md     评分 × 可核对信息量（延伸检验：数量词 / 对象词）
+│   ├── info_content_audit.md  规则指标的 30 条人工抽查（precision / specificity）
 │   ├── figures/            9 张图
 │   └── app-review-deck/    10 页 HTML 演示
 ├── codebook.md         codebook v0.2（11 类主题 + other + 人工编码手册）
@@ -74,7 +75,8 @@ app_review_project/
   该维度不适合独立人工编码，作为负结果保留，见 `coding_check.md`。
 - **「信息含量」不等于「医学质量」**：数量词与对象词是规则指标，只能说明评论里有没有可核对的细节，
   不能说明建议对不对 —— 后者需要医生金标准（Chen & Walker 2023 的做法）。对象词只判「谈没谈到」，
-  不识别具体是哪位医生、哪家医院。
+  不识别具体是哪位医生、哪家医院。规则的准确率经 30 条人工复核：数量词判「有」6/10 成立、判「无」20/20 成立，
+  对象词 15/17 与 9/13，见 `info_content_audit.md`。
 
 ## 数据
 
