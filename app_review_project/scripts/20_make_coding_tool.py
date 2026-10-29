@@ -15,12 +15,19 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 STATES = DATA / "topic_topwords.csv"  # 只为确认工作目录正确，不读内容
 
-THEMES = ["fee", "doctor", "delivery", "prescription", "appointment", "tech",
-          "privacy", "service", "promotion", "goods", "content", "other"]
-THEME_CN = {"fee": "收费/退款", "doctor": "医生质量", "delivery": "药品配送",
-            "prescription": "处方/用药", "appointment": "预约/挂号", "tech": "技术/账号",
-            "privacy": "隐私/安全", "service": "客服/售后", "promotion": "活动/营销",
-            "goods": "商品/实物", "content": "内容/推送", "other": "其他/空泛"}
+THEMES = ["doctor", "appointment", "prescription", "fee", "promotion", "service",
+          "tech", "privacy", "delivery", "goods", "content", "other"]
+THEME_CN = {"doctor": "医生质量", "appointment": "预约挂号",
+            "prescription": "处方用药", "fee": "收费退款", "promotion": "活动营销",
+            "service": "客服售后", "tech": "技术故障", "privacy": "隐私安全",
+            "delivery": "药品配送", "goods": "商品实物",
+            "content": "内容推送", "other": "其他（无议题）"}
+GROUPS = [("医疗服务", ["doctor", "appointment", "prescription"]),
+          ("费用与权益", ["fee", "promotion", "service"]),
+          ("技术与账号", ["tech", "privacy"]),
+          ("药品与商品", ["delivery", "goods"]),
+          ("内容", ["content"]),
+          ("其他", ["other"])]
 
 TEMPLATE = """<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8">
@@ -50,6 +57,8 @@ cursor:pointer;line-height:1.45}
 .opt span{font-size:12px;color:var(--dim)}
 .opt.on{border-color:var(--accent);background:#fdf6ef}.opt.on b{color:var(--accent)}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
+.grp{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.gl{font-size:11.5px;color:var(--dim);width:78px;flex:none;text-align:right;letter-spacing:.04em}
 .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 14px;font-size:13.5px;
 cursor:pointer;font-family:inherit;color:var(--fg)}
 .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -64,9 +73,10 @@ padding:11px 26px;display:flex;gap:11px;align-items:center}
 <main>
   <div class="meta" id="meta"></div>
   <div class="content" id="content"></div>
-  <h3>文本具体性 spec</h3>
+  <h3>文本具体性 spec：先问有无对象，再问有无可核对的量</h3>
   <div class="opts" id="spec"></div>
-  <h3>主议题 primary</h3>
+  <p class="hint" style="margin-left:0;margin-top:8px">只提到功能名、药名、科室名算 1，不算 2；「能核对」才给 2。</p>
+  <h3>主议题 primary：先定组，再选细项</h3>
   <div class="chips" id="primary"></div>
   <h3>备注 note（可选）</h3>
   <textarea id="note" placeholder="边界判例写在这里，便于事后核对规则"></textarea>
@@ -78,9 +88,10 @@ padding:11px 26px;display:flex;gap:11px;align-items:center}
 </nav>
 <script>
 const ROWS = __ROWS__;
-const SPECS = [[0,"0 无具体对象","只有情绪或空泛夸奖：垃圾、太好了"],["1","1 有对象无细节","能说清在谈什么，但没有可核对的量"],["2","2 可核实细节","金额、次数、时长、具体功能名、症状/药品、操作步骤"]];
+const SPECS = [["0","0 无对象","划掉情绪词后，没有可指认的对象"],["1","1 有对象无量","能说清在谈什么，但没有可核对的量"],["2","2 有可核对的量","金额、次数、时长、日期、版本号、操作步骤"]];
 const THEMES = __THEMES__;
 const THEME_CN = __THEME_CN__;
+const GROUPS = __GROUPS__;
 const KEY = __KEY__;
 const S = JSON.parse(localStorage.getItem(KEY) || "{}");
 let i = 0;
@@ -94,8 +105,10 @@ function sync(){
   document.getElementById("note").value = c.note || "";
   document.getElementById("spec").innerHTML = SPECS.map(([v,t,d])=>
     '<button class="opt '+(c.spec===String(v)?"on":"")+'" data-v="'+v+'"><b>'+t+'</b><span>'+d+'</span></button>').join("");
-  document.getElementById("primary").innerHTML = THEMES.map(k=>
-    '<button class="chip '+(c.primary===k?"on":"")+'" data-k="'+k+'">'+THEME_CN[k]+'</button>').join("");
+  document.getElementById("primary").innerHTML = GROUPS.map(([g,ks])=>
+    '<div class="grp"><span class="gl">'+g+'</span>'+
+    ks.map(k=>'<button class="chip '+(c.primary===k?"on":"")+'" data-k="'+k+'">'+THEME_CN[k]+'</button>').join("")+
+    '</div>').join("");
   document.querySelectorAll("#spec .opt").forEach(b=>b.onclick=()=>{c.spec=b.dataset.v; save(); sync();});
   document.querySelectorAll("#primary .chip").forEach(b=>b.onclick=()=>{c.primary=b.dataset.k; save(); sync();});
   const done = ROWS.filter(x=>S[x.review_id].spec!=="" && S[x.review_id].primary!=="").length;
@@ -137,7 +150,8 @@ def build(sheet: str) -> Path:
             .replace("__ROWS__", json.dumps(rows, ensure_ascii=False))
             .replace("__THEMES__", json.dumps(THEMES, ensure_ascii=False))
             .replace("__THEME_CN__", json.dumps(THEME_CN, ensure_ascii=False))
-            .replace("__KEY__", json.dumps(f"coding_{sheet}_v1"))
+            .replace("__GROUPS__", json.dumps(GROUPS, ensure_ascii=False))
+            .replace("__KEY__", json.dumps(f"coding_{sheet}_v2"))
             .replace("__FILE__", json.dumps(f"coding_{sheet}.csv"))
             .replace("__SHEET__", sheet))
     out = DATA / f"coding_tool_{sheet}.html"

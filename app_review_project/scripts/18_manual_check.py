@@ -107,12 +107,14 @@ def kappa(a: pd.Series, b: pd.Series, weighted: bool) -> float:
 def main():
     sample = pd.read_csv(SAMPLE, encoding="utf-8-sig", dtype={"review_id": str})
     sheet, sheet_desc = load_sheets()
-    base = sample.merge(sheet[["review_id"]], on="review_id", how="left")
+    base = sample[sample["review_id"].isin(sheet["review_id"])].copy()
+    base = base.merge(sheet[["review_id"]], on="review_id", how="left")
 
     # ---------- 机械基线（与人工编码无关，任何时候都能算） ----------
+    sample["mech_spec"] = sample["content"].map(mechanical_spec)
     base["mech_spec"] = base["content"].map(mechanical_spec)
     base["n_char"] = base["content"].astype(str).str.len()
-    five = base[base["rating"] == 5]
+    five = sample[sample["rating"] == 5]
     five_mech = (five["mech_spec"] == 0).mean()
 
     nA, nB = filled(sheet["spec_A"]), filled(sheet["spec_B"])
@@ -142,9 +144,9 @@ def main():
         "|---|---|---|---|",
     ]
     for s, name in [(2, "2 可核实"), (1, "1 有对象"), (0, "0 无对象")]:
-        r1 = (base[base["rating"] == 1]["mech_spec"] == s).mean()
-        r5 = (base[base["rating"] == 5]["mech_spec"] == s).mean()
-        lines.append(f"| {name} | {(base['mech_spec'] == s).mean():.1%} | {r1:.1%} | {r5:.1%} |")
+        r1 = (sample[sample["rating"] == 1]["mech_spec"] == s).mean()
+        r5 = (sample[sample["rating"] == 5]["mech_spec"] == s).mean()
+        lines.append(f"| {name} | {(sample['mech_spec'] == s).mean():.1%} | {r1:.1%} | {r5:.1%} |")
     lines += [
         "",
         f"5 星中机械判为「0 无对象」的比例：**{five_mech:.1%}**。这与主报告的关键词代理（15.4% vs 29.1%）方向一致，"
@@ -193,8 +195,13 @@ def main():
             "**低于 0.6 必须回头改手册的边界规则，而不是硬报数字**。",
             "",
         ]
-
-        # 人工 5 星空泛率 vs 机械基线
+        ab = [k for name, k, n in res if "A vs B" in name]
+        if ab and max(ab) < 0.6:
+            lines += [
+                "**判定：未达 0.6，第一轮编码不采用。** `codebook.md` 第 8 节已改为可操作测试"
+                "（`spec` 改为「能否核对」，`primary` 由 12 类合并为 6 组），编码表与工具同步更新为 v2，待重编后再报 κ。",
+                "",
+            ]
         a_ok = base[base["spec_A"] != ""]
         if len(a_ok):
             f5 = a_ok[a_ok["rating"] == 5]
@@ -214,6 +221,52 @@ def main():
                     "若方向不一致，以人工编码为准，并说明代理指标为何失真。",
                     "",
                 ]
+        # ---------- 5. 分歧诊断 ----------
+        if nA >= 10 and nB >= 10:
+            both = (base["spec_A"] != "") & (base["spec_B"] != "")
+            sa, sb = base.loc[both, "spec_A"], base.loc[both, "spec_B"]
+            same = int((sa == sb).sum())
+            d = (pd.to_numeric(sa, errors="coerce") - pd.to_numeric(sb, errors="coerce")).abs()
+            m6 = {"doctor": "医疗服务", "appointment": "医疗服务", "prescription": "医疗服务",
+                  "fee": "费用与权益", "promotion": "费用与权益", "service": "费用与权益",
+                  "tech": "技术与账号", "privacy": "技术与账号",
+                  "delivery": "药品与商品", "goods": "药品与商品",
+                  "content": "内容", "other": "其他"}
+            pa = base.loc[both, "primary_A"]
+            pb = base.loc[both, "primary_B"]
+            keep = pa.isin(m6) & pb.isin(m6)
+            lines += [
+                "## 5. 分歧诊断",
+                "",
+                f"具体性完全一致 {same}/{int(both.sum())}，差一档 {int((d == 1).sum())}，差两档 {int((d == 2).sum())}。",
+                "",
+                "| 口径 | κ |",
+                "|---|---|",
+                f"| spec 三分（二次加权） | {kappa(sa, sb, True):.3f} |",
+                f"| spec 二分（0 vs 1/2） | {kappa((sa != '0').map(str), (sb != '0').map(str), False):.3f} |",
+                f"| primary 12 类 | {kappa(pa, pb, False):.3f} |",
+                f"| primary 合并 6 组 | {kappa(pa[keep].map(m6), pb[keep].map(m6), False):.3f} |",
+                "",
+            ]
+            # 判断编码者是否真的依据文本：spec 与字数、含数字的关联
+            nchar = base.loc[both, "n_char"]
+            hasd = base.loc[both, "content"].astype(str).str.contains(r"\d").astype(int)
+            rows = []
+            for who, v in (("A", sa), ("B", sb)):
+                vn = pd.to_numeric(v, errors="coerce")
+                rows.append(f"| {who} | {vn.corr(nchar, method='spearman'):.2f} | {vn.corr(hasd, method='spearman'):.2f} |")
+            lines += [
+                "编码是否真的依据文本（若某位编码者的相关性接近 0，说明未按文字判断）：",
+                "",
+                "| 编码者 | spec 与字数（Spearman） | spec 与「含数字」 |",
+                "|---|---|---|",
+                *rows,
+                "",
+                "> 结论写进 `codebook.md` 第 8 节：若两列都明显为正、但 κ 仍低，问题在手册边界而非编码者，"
+                "改手册后重编，不硬报数字。",
+                "",
+            ]
+
         lines += ["*生成脚本：`scripts/18_manual_check.py`。*"]
 
     REPORT.write_text("\n".join(lines), encoding="utf-8")
