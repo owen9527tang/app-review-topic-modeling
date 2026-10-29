@@ -27,6 +27,7 @@
 | `bertopic_topics.csv` | 33 个簇的规模、星级构成、top 词、中段占比 | `16_bertopic.py` |
 | `bertopic_info.csv` | 簇的 UMAP/HDBSCAN 诊断信息 | `16_bertopic.py` |
 | `embeddings_bge_index.csv` | 句向量矩阵的行顺序（`review_id` + App + 星级，**无正文**） | `15_embed_smoke.py` |
+| `info_content.csv` | 逐条信息含量标记（`review_id` + App + 星级 + 月 + 中文字数 + `has_num` / `has_entity`，**无正文**） | `22_info_content.py` |
 
 ## 未公开文件（本地保留）
 
@@ -49,6 +50,7 @@ python scripts/11_figures.py
 python scripts/12_algorithm_check.py
 python scripts/13_ai_read.py
 python scripts/17_heterogeneity.py
+python scripts/22_info_content.py
 
 # 3. 句向量与 BERTopic（需 Python 3.11 + torch，见根 README）
 python scripts/14_download_embedding.py
